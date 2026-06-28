@@ -1,0 +1,175 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <!-- Back Button -->
+    <a class="btn btn-outline-secondary mb-4" href="{% url 'home' %}">
+        <i class="fas fa-arrow-left me-2"></i>Back to Search
+    </a>
+
+    <div class="row">
+        <!-- Recipe Image & Basic Info -->
+        <div class="col-lg-5">
+            <div class="card shadow-lg border-0">
+                <img alt="{{ recipe.name }}"
+                     class="card-img-top"
+                     onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'"
+                     src="{{ recipe.image_url }}" />
+
+                <div class="card-body">
+                    <h1 class="card-title">{{ recipe.name }}</h1>
+                    <p class="lead">{{ recipe.description }}</p>
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <span class="badge bg-primary me-2">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ recipe.minutes }} minutes
+                            </span>
+                            <span class="badge bg-success">
+                                <i class="fas fa-utensils me-1"></i>
+                                {{ ingredients_list|length }} ingredients
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Nutrition Information -->
+                    <div class="nutrition-card p-3 bg-light rounded mb-4">
+                        <h5 class="mb-3">
+                            <i class="fas fa-apple-alt me-2"></i>Nutrition Facts (per serving)
+                        </h5>
+                        <div class="row">
+                            {% if nutrition.0 %}
+                            <div class="col-6 mb-2">
+                                <small>Calories</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.0|floatformat:0 }} cal
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if nutrition.4 %}
+                            <div class="col-6 mb-2">
+                                <small>Protein</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.4|floatformat:1 }}g
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if nutrition.1 %}
+                            <div class="col-6 mb-2">
+                                <small>Total Fat</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.1|floatformat:1 }}g
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if nutrition.6 %}
+                            <div class="col-6 mb-2">
+                                <small>Carbs</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.6|floatformat:1 }}g
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if nutrition.2 %}
+                            <div class="col-6 mb-2">
+                                <small>Sugar</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.2|floatformat:1 }}g
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if nutrition.3 %}
+                            <div class="col-6 mb-2">
+                                <small>Sodium</small>
+                                <div class="fw-bold">
+                                    {{ nutrition.3|floatformat:0 }}mg
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ingredients & Steps -->
+        <div class="col-lg-7">
+            <!-- Ingredients Card -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-shopping-basket me-2 text-primary"></i>Ingredients
+                        <span class="badge bg-primary float-end">
+                            {{ ingredients_list|length }} items
+                        </span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for ingredient in ingredients_list %}
+                        <div class="col-md-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       id="ing{{ forloop.counter }}"
+                                       type="checkbox" />
+                                <label class="form-check-label"
+                                       for="ing{{ forloop.counter }}">
+                                    {{ ingredient }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary btn-sm"
+                                onclick="checkAllIngredients()">
+                            <i class="fas fa-check-double me-1"></i>Check All
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm"
+                                onclick="uncheckAllIngredients()">
+                            <i class="fas fa-times me-1"></i>Uncheck All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Steps Card -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-list-ol me-2 text-primary"></i>Cooking Instructions
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="recipe-steps">
+                        {% for step in steps_list %}
+                        <div class="mb-4">
+                            <div class="d-flex">
+                                <div class="step-number">
+                                    {{ forloop.counter }}
+                                </div>
+                                <div>
+                                    <h6>Step {{ forloop.counter }}</h6>
+                                    <p>{{ step }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function checkAllIngredients() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    }
+    
+    function uncheckAllIngredients() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    }
+</script>
+{% endblock %}
