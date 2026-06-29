@@ -1,32 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/mock_data.dart';
 import '../../data/models/recipe.dart';
 
-/// Holds the set of saved recipe IDs in memory. Will later be backed by the
-/// Django API + a local Hive cache for offline access.
-class SavedRecipesNotifier extends Notifier<Set<String>> {
+/// Holds saved recipes (full objects) in memory, keyed by id. Will later be
+/// backed by the backend + a local Hive cache for offline access.
+class SavedRecipesNotifier extends Notifier<Map<String, Recipe>> {
   @override
-  Set<String> build() => {'3', '6'};
+  Map<String, Recipe> build() => {};
 
-  void toggle(String id) {
+  void toggle(Recipe recipe) {
     final next = {...state};
-    if (next.contains(id)) {
-      next.remove(id);
+    if (next.containsKey(recipe.id)) {
+      next.remove(recipe.id);
     } else {
-      next.add(id);
+      next[recipe.id] = recipe;
     }
     state = next;
   }
 
-  bool isSaved(String id) => state.contains(id);
+  bool isSaved(String id) => state.containsKey(id);
 }
 
 final savedRecipesProvider =
-    NotifierProvider<SavedRecipesNotifier, Set<String>>(SavedRecipesNotifier.new);
+    NotifierProvider<SavedRecipesNotifier, Map<String, Recipe>>(SavedRecipesNotifier.new);
 
-/// Resolves the saved IDs into full [Recipe] objects.
+/// The saved recipes as a list (newest first).
 final savedRecipeListProvider = Provider<List<Recipe>>((ref) {
-  final ids = ref.watch(savedRecipesProvider);
-  return MockData.recipes.where((r) => ids.contains(r.id)).toList();
+  return ref.watch(savedRecipesProvider).values.toList().reversed.toList();
 });

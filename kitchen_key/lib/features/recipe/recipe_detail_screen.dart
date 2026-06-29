@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../data/mock_data.dart';
 import '../../data/models/recipe.dart';
+import '../../data/repositories/recipe_repository.dart';
 import '../../shared/widgets/recipe_hero_image.dart';
 import '../cooking/cooking_mode_screen.dart';
 import '../reviews/reviews_section.dart';
@@ -21,13 +22,17 @@ class RecipeDetailScreen extends ConsumerStatefulWidget {
 class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
   late int _servings = widget.recipe.servings;
 
-  Recipe get recipe => widget.recipe;
-  double get _scale => _servings / recipe.servings;
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final isSaved = ref.watch(savedRecipesProvider).contains(recipe.id);
+
+    // Show the summary instantly, then upgrade to the full fetched recipe.
+    final detailAsync = ref.watch(recipeDetailProvider(widget.recipe.id));
+    final recipe = detailAsync.value ?? widget.recipe;
+    final loadingDetail = detailAsync.isLoading && !recipe.hasFullDetail;
+    final scale = recipe.servings == 0 ? 1.0 : _servings / recipe.servings;
+
+    final isSaved = ref.watch(savedRecipesProvider).containsKey(recipe.id);
 
     return Scaffold(
       body: CustomScrollView(
@@ -41,7 +46,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
               _circleButton(Icons.share_rounded, () {}),
               _circleButton(
                 isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                () => ref.read(savedRecipesProvider.notifier).toggle(recipe.id),
+                () => ref.read(savedRecipesProvider.notifier).toggle(recipe),
                 color: isSaved ? AppColors.coral : null,
               ),
             ],
@@ -75,6 +80,19 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                   Text(recipe.title, style: text.headlineMedium),
                   const SizedBox(height: 6),
                   Text(recipe.description, style: text.bodyMedium),
+                  if (recipe.country.isNotEmpty || recipe.halalStatus.isNotEmpty) ...[
+                    AppSpacing.vGapMd,
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        if (recipe.country.isNotEmpty)
+                          _metaChip(Icons.public_rounded, recipe.country),
+                        if (recipe.halalStatus.isNotEmpty)
+                          _halalChip(recipe.halalStatus),
+                      ],
+                    ),
+                  ],
                   AppSpacing.vGapLg,
                   Row(
                     children: [
@@ -116,13 +134,25 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     ],
                   ),
                   AppSpacing.vGapMd,
-                  ...recipe.ingredients.map((ing) => _ingredientRow(ing, text)),
+                  if (loadingDetail)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    )
+                  else
+                    ...recipe.ingredients.map((ing) => _ingredientRow(ing, scale, text)),
                   AppSpacing.vGapXl,
 
                   // Steps
                   Text('Instructions', style: text.titleLarge),
                   AppSpacing.vGapMd,
-                  ...List.generate(recipe.steps.length, (i) => _stepRow(i + 1, recipe.steps[i], text)),
+                  if (loadingDetail)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    )
+                  else
+                    ...List.generate(recipe.steps.length, (i) => _stepRow(i + 1, recipe.steps[i], text)),
                   AppSpacing.vGapXl,
 
                   // Reviews
@@ -261,8 +291,44 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
     );
   }
 
-  Widget _ingredientRow(RecipeIngredient ing, TextTheme text) {
-    final qty = ing.quantity * _scale;
+  Widget _metaChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: AppRadius.brSm,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _halalChip(String status) {
+    final isHalal = status.toLowerCase() == 'halal';
+    final isHaram = status.toLowerCase() == 'haram';
+    final color = isHalal ? AppColors.success : (isHaram ? AppColors.error : AppColors.warning);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: AppRadius.brSm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(isHalal ? Icons.verified_rounded : Icons.info_rounded, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(status, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _ingredientRow(RecipeIngredient ing, double scale, TextTheme text) {
+    final qty = ing.quantity * scale;
     final qtyLabel = qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(1);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),

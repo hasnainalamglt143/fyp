@@ -45,11 +45,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_yasg',
+    'corsheaders',
     'recipes',
     'widget_tweaks',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -129,3 +131,13 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Allow the Flutter app (and Flutter web during dev) to call the API.
+CORS_ALLOW_ALL_ORIGINS = True
+
+# DRF defaults: open read access for the prototype, JSON-first.
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.AllowAny'],
+    'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer',
+                                 'rest_framework.renderers.BrowsableAPIRenderer'],
+}

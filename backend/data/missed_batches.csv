@@ -1,0 +1,37 @@
+cuisine,reason,timestamp
+Pakistani,no_response,2026-06-28 18:21:58.585129
+Indian,no_response,2026-06-28 18:25:28.856981
+Italian,no_response,2026-06-28 18:29:08.746461
+Chinese,no_response,2026-06-28 18:32:58.332927
+Thai,no_response,2026-06-28 18:36:38.813673
+Mexican,no_response,2026-06-28 18:40:33.499380
+Turkish,send_failed,2026-06-28 18:46:12.742748
+Middle Eastern,send_failed,2026-06-28 18:46:12.945019
+Japanese,send_failed,2026-06-28 18:46:13.271872
+Mediterranean,send_failed,2026-06-28 18:46:13.396368
+American,send_failed,2026-06-28 18:46:13.478627
+Afghan,send_failed,2026-06-28 18:46:13.549900
+Continental,send_failed,2026-06-28 18:46:13.634950
+Korean,send_failed,2026-06-28 18:46:13.732756
+Lebanese,send_failed,2026-06-28 18:46:13.819646
+Pakistani,send_failed,2026-06-28 18:51:08.359840
+Pakistani,no_response,2026-06-28 18:53:36.978113
+Pakistani,no_response,2026-06-28 18:58:59.996274
+Pakistani,no_response,2026-06-28 19:10:13.503251
+Indian,no_response,2026-06-28 19:11:57.279599
+Italian,no_response,2026-06-28 19:13:35.328325
+Pakistani,no_response,2026-06-28 19:54:38.699042
+Pakistani,send_failed,2026-06-28 19:57:49.256893
+Pakistani,send_failed,2026-06-28 19:59:21.742349
+Pakistani,send_failed,2026-06-28 20:15:18.489066
+Pakistani,send_failed,2026-06-28 20:36:58.245084
+Indian,send_failed,2026-06-28 20:37:52.398778
+Italian,send_failed,2026-06-28 20:38:46.608238
+Chinese,send_failed,2026-06-28 20:39:40.916391
+Thai,send_failed,2026-06-28 20:40:34.985068
+Mexican,send_failed,2026-06-28 20:41:29.622487
+Turkish,send_failed,2026-06-28 20:42:24.200723
+Middle Eastern,send_failed,2026-06-28 20:43:18.600737
+Japanese,send_failed,2026-06-28 20:45:51.781848
+Pakistani,failed_after_retries,2026-06-28 20:48:47.282879
+Pakistani,failed_after_retries,2026-06-28 20:49:41.889732

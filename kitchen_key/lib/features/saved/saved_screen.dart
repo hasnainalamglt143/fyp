@@ -66,9 +66,9 @@ class SavedScreen extends ConsumerWidget {
                         final r = saved[i];
                         return RecipeListCard(
                           recipe: r,
-                          isSaved: savedIds.contains(r.id),
+                          isSaved: savedIds.containsKey(r.id),
                           onSaveTap: () =>
-                              ref.read(savedRecipesProvider.notifier).toggle(r.id),
+                              ref.read(savedRecipesProvider.notifier).toggle(r),
                           onTap: () => context.push('/recipe', extra: r),
                         );
                       },

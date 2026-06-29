@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KitchenKeyRecipe",
+  "description": "Schema for an LLM-collected recipe record used by the Kitchen Key app.",
+  "type": "object",
+  "required": [
+    "id", "name", "description", "cuisine", "country", "meal_type",
+    "difficulty", "prep_time_minutes", "cook_time_minutes", "servings",
+    "ingredients", "steps", "halal_haram_status", "nutrition_per_serving"
+  ],
+  "properties": {
+    "id": { "type": "integer", "description": "Unique id (assigned locally, not by the LLM)." },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "cuisine": { "type": "string", "description": "e.g. Pakistani, Italian, Thai." },
+    "country": { "type": "string", "description": "Country the cuisine/dish originates from." },
+    "region": { "type": "string", "description": "Optional sub-region (e.g. Punjab, Sicily)." },
+    "meal_type": {
+      "type": "string",
+      "enum": ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert", "Drinks"]
+    },
+    "course": { "type": "string", "description": "Starter / Main / Side / Dessert (optional)." },
+    "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
+    "prep_time_minutes": { "type": "integer", "minimum": 0 },
+    "cook_time_minutes": { "type": "integer", "minimum": 0 },
+    "total_time_minutes": { "type": "integer", "minimum": 0 },
+    "servings": { "type": "integer", "minimum": 1 },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "quantity", "unit"],
+        "properties": {
+          "name": { "type": "string" },
+          "quantity": { "type": "number" },
+          "unit": { "type": "string", "description": "g, ml, cups, tbsp, tsp, pcs, etc." },
+          "aisle": {
+            "type": "string",
+            "enum": ["Produce", "Dairy", "Meat", "Seafood", "Pantry", "Bakery", "Frozen", "Spices", "Other"]
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "steps": { "type": "array", "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "diet_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Vegetarian", "Vegan", "Gluten-Free", "Keto", "High-Protein", "Low-Carb", "Dairy-Free"]
+      }
+    },
+    "allergens": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Peanuts", "Tree Nuts", "Dairy", "Gluten", "Shellfish", "Fish", "Eggs", "Soy", "Sesame"]
+      }
+    },
+    "halal_haram_status": {
+      "type": "string",
+      "enum": ["Halal", "Haram", "Mashbooh"],
+      "description": "Mashbooh = doubtful/uncertain (e.g. gelatin or enzymes of unknown source)."
+    },
+    "halal_haram_reason": {
+      "type": "string",
+      "description": "Short explanation of why the dish is Halal, Haram, or Mashbooh."
+    },
+    "nutrition_per_serving": {
+      "type": "object",
+      "required": ["calories", "protein_g", "carbs_g", "fat_g"],
+      "properties": {
+        "calories": { "type": "number" },
+        "protein_g": { "type": "number" },
+        "carbs_g": { "type": "number" },
+        "fat_g": { "type": "number" },
+        "fiber_g": { "type": "number" },
+        "sugar_g": { "type": "number" },
+        "sodium_mg": { "type": "number" },
+        "saturated_fat_g": { "type": "number" }
+      }
+    },
+    "nutrition_estimated": { "type": "boolean", "default": true },
+    "image_query": { "type": "string", "description": "Search phrase to fetch a real photo later." },
+    "image_url": { "type": "string", "description": "Filled in a later image-resolution pass (LLM cannot supply real photos)." },
+    "rating": { "type": ["number", "null"], "description": "Seeded 0; real ratings come from the Reviews feature." },
+    "review_count": { "type": "integer", "default": 0 },
+    "author": { "type": "string", "default": "AI-generated" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

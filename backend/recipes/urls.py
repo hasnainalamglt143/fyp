@@ -1,9 +1,23 @@
-from django.urls import path, include
-from . import views
+from django.http import JsonResponse
+from django.urls import include, path
+
+
+def api_root(request):
+    return JsonResponse({
+        "service": "Kitchen Key API",
+        "version": "v1",
+        "endpoints": {
+            "recipes": "/api/v1/recipes/?search=&cuisine=&meal_type=&difficulty=&diet=&halal=&max_minutes=&sort=&page=&limit=",
+            "recipe_detail": "/api/v1/recipes/<id>/",
+            "suggest_by_ingredients": "POST /api/v1/recipes/suggest/  body: {\"ingredients\": [\"chicken\", \"rice\"]}",
+            "ingredients": "/api/v1/ingredients/",
+            "meta": "/api/v1/meta/",
+            "docs": "/swagger/",
+        },
+    })
+
 
 urlpatterns = [
-    path('', views.home, name='home'),
-    path('api/v1/', include('recipes.api.v1.urls')),
-    path('api/recommend/', views.get_recommendations, name='get_recommendations'),
-    path('recipe/<int:recipe_id>/', views.recipe_detail, name='recipe_detail'),
+    path("", api_root, name="home"),
+    path("api/v1/", include("recipes.api.v1.urls")),
 ]

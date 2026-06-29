@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../data/mock_data.dart';
-import '../../data/models/recipe.dart';
+import '../../data/repositories/recipe_repository.dart';
+import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/recipe_card.dart';
+import '../../shared/widgets/skeletons.dart';
 import '../saved/saved_provider.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -20,8 +22,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   String _query = '';
   String _cuisine = 'All';
-
-  static const _recentSearches = ['Biryani', 'Pasta', 'Smoothie', 'Tacos'];
+  String _difficulty = '';
+  int? _maxMinutes;
+  String _diet = '';
 
   @override
   void dispose() {
@@ -29,21 +32,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  List<Recipe> get _results {
-    return MockData.recipes.where((r) {
-      final matchesQuery = _query.isEmpty ||
-          r.title.toLowerCase().contains(_query.toLowerCase()) ||
-          r.ingredients.any((i) => i.name.toLowerCase().contains(_query.toLowerCase()));
-      final matchesCuisine = _cuisine == 'All' || r.cuisine == _cuisine;
-      return matchesQuery && matchesCuisine;
-    }).toList();
-  }
+  bool get _isFiltering =>
+      _query.isNotEmpty || _cuisine != 'All' || _difficulty.isNotEmpty || _maxMinutes != null || _diet.isNotEmpty;
+
+  RecipeQuery get _query0 => RecipeQuery(
+        search: _query,
+        cuisine: _cuisine,
+        difficulty: _difficulty,
+        maxMinutes: _maxMinutes,
+        diet: _diet,
+        limit: 60,
+      );
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final saved = ref.watch(savedRecipesProvider);
-    final results = _results;
+    final meta = ref.watch(metaProvider);
+    final cuisines = <String>[
+      'All',
+      ...?meta.whenOrNull(data: (m) => (m['cuisines'] as List?)?.map((e) => '$e')),
+    ];
 
     return Scaffold(
       body: SafeArea(
@@ -61,6 +70,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      textInputAction: TextInputAction.search,
                       onChanged: (v) => setState(() => _query = v),
                       decoration: InputDecoration(
                         hintText: 'Recipe or ingredient…',
@@ -98,10 +108,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                itemCount: MockData.cuisines.length,
+                itemCount: cuisines.length,
                 separatorBuilder: (_, _) => AppSpacing.hGapSm,
                 itemBuilder: (context, i) {
-                  final c = MockData.cuisines[i];
+                  final c = cuisines[i];
                   final selected = c == _cuisine;
                   return ChoiceChip(
                     label: Text(c),
@@ -116,26 +126,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             AppSpacing.vGapMd,
             Expanded(
-              child: _query.isEmpty && _cuisine == 'All'
-                  ? _buildSuggestions(text)
-                  : results.isEmpty
-                      ? _buildEmpty(text)
-                      : ListView.separated(
+              child: !_isFiltering
+                  ? _buildSuggestions(text, cuisines)
+                  : ref.watch(recipeListProvider(_query0)).when(
+                        data: (results) => results.isEmpty
+                            ? const EmptyState(
+                                icon: Icons.search_off_rounded,
+                                title: 'No recipes found',
+                                message: 'Try a different keyword or filter.',
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                    AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxl),
+                                itemCount: results.length,
+                                separatorBuilder: (_, _) => AppSpacing.vGapMd,
+                                itemBuilder: (context, i) {
+                                  final r = results[i];
+                                  return RecipeListCard(
+                                    recipe: r,
+                                    isSaved: saved.containsKey(r.id),
+                                    onSaveTap: () =>
+                                        ref.read(savedRecipesProvider.notifier).toggle(r),
+                                    onTap: () => context.push('/recipe', extra: r),
+                                  );
+                                },
+                              ),
+                        loading: () => ListView.separated(
                           padding: const EdgeInsets.fromLTRB(
                               AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxl),
-                          itemCount: results.length,
-                          separatorBuilder: (_, _) => AppSpacing.vGapMd,
-                          itemBuilder: (context, i) {
-                            final r = results[i];
-                            return RecipeListCard(
-                              recipe: r,
-                              isSaved: saved.contains(r.id),
-                              onSaveTap: () =>
-                                  ref.read(savedRecipesProvider.notifier).toggle(r.id),
-                              onTap: () => context.push('/recipe', extra: r),
-                            );
-                          },
+                          itemCount: 6,
+                          separatorBuilder: (_, _) => AppSpacing.vGapLg,
+                          itemBuilder: (_, _) => const RecipeCardSkeleton(),
                         ),
+                        error: (e, _) => EmptyState(
+                          icon: Icons.cloud_off_rounded,
+                          title: 'Connection problem',
+                          message: describeApiError(e),
+                          actionLabel: 'Retry',
+                          onAction: () => ref.invalidate(recipeListProvider(_query0)),
+                        ),
+                      ),
             ),
           ],
         ),
@@ -143,57 +173,45 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSuggestions(TextTheme text) {
+  Widget _buildSuggestions(TextTheme text, List<String> cuisines) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Recent searches', style: text.titleMedium),
+          Text('Browse by cuisine', style: text.titleMedium),
           AppSpacing.vGapMd,
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
-            children: _recentSearches
-                .map((s) => ActionChip(
-                      avatar: const Icon(Icons.history_rounded, size: 16),
-                      label: Text(s),
-                      onPressed: () {
-                        _controller.text = s;
-                        setState(() => _query = s);
-                      },
-                    ))
-                .toList(),
+            children: cuisines.where((c) => c != 'All').map((c) {
+              return ActionChip(
+                label: Text(c),
+                onPressed: () => setState(() => _cuisine = c),
+              );
+            }).toList(),
           ),
           AppSpacing.vGapXl,
-          Text('Popular right now', style: text.titleMedium),
+          Text('Quick filters', style: text.titleMedium),
           AppSpacing.vGapMd,
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
-            children: ['Quick dinners', 'Healthy', 'Desserts', 'Under 30 min', 'High protein']
-                .map((s) => Chip(
-                      backgroundColor: AppColors.primarySurface,
-                      side: BorderSide.none,
-                      label: Text(s, style: text.labelMedium?.copyWith(color: AppColors.primaryDark)),
-                    ))
-                .toList(),
+            children: [
+              ActionChip(
+                  avatar: const Icon(Icons.bolt_rounded, size: 16),
+                  label: const Text('Under 30 min'),
+                  onPressed: () => setState(() => _maxMinutes = 30)),
+              ActionChip(
+                  avatar: const Icon(Icons.eco_rounded, size: 16),
+                  label: const Text('Vegetarian'),
+                  onPressed: () => setState(() => _diet = 'Vegetarian')),
+              ActionChip(
+                  avatar: const Icon(Icons.star_rounded, size: 16),
+                  label: const Text('Easy'),
+                  onPressed: () => setState(() => _difficulty = 'Easy')),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty(TextTheme text) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.search_off_rounded, size: 64, color: AppColors.textTertiary),
-          AppSpacing.vGapMd,
-          Text('No recipes found', style: text.titleMedium),
-          const SizedBox(height: 4),
-          Text('Try a different keyword or filter', style: text.bodyMedium),
         ],
       ),
     );
@@ -203,67 +221,76 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _FilterSheet(),
-    );
-  }
-}
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final text = Theme.of(ctx).textTheme;
+          Widget group(String title, List<String> options, String current,
+              ValueChanged<String> onPick) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.titleMedium),
+                AppSpacing.vGapSm,
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: options.map((o) {
+                    final sel = o == current;
+                    return FilterChip(
+                      label: Text(o),
+                      selected: sel,
+                      showCheckmark: false,
+                      onSelected: (_) => setSheet(() => onPick(sel ? '' : o)),
+                      labelStyle: text.labelMedium?.copyWith(
+                          color: sel ? Colors.white : AppColors.textSecondary),
+                    );
+                  }).toList(),
+                ),
+                AppSpacing.vGapLg,
+              ],
+            );
+          }
 
-class _FilterSheet extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: AppColors.border, borderRadius: AppRadius.brSm),
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Filters', style: text.titleLarge),
+                AppSpacing.vGapLg,
+                group('Diet', const ['Vegetarian', 'Vegan', 'Gluten-Free', 'Keto', 'High-Protein'],
+                    _diet, (v) => _diet = v),
+                group('Difficulty', const ['Easy', 'Medium', 'Hard'], _difficulty,
+                    (v) => _difficulty = v),
+                Text('Cooking time', style: text.titleMedium),
+                AppSpacing.vGapSm,
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  children: [15, 30, 60].map((m) {
+                    final sel = _maxMinutes == m;
+                    return FilterChip(
+                      label: Text('< $m min'),
+                      selected: sel,
+                      showCheckmark: false,
+                      onSelected: (_) => setSheet(() => _maxMinutes = sel ? null : m),
+                      labelStyle: text.labelMedium?.copyWith(
+                          color: sel ? Colors.white : AppColors.textSecondary),
+                    );
+                  }).toList(),
+                ),
+                AppSpacing.vGapXl,
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {});
+                  },
+                  child: const Text('Apply filters'),
+                ),
+              ],
             ),
-          ),
-          AppSpacing.vGapLg,
-          Text('Filters', style: text.titleLarge),
-          AppSpacing.vGapLg,
-          Text('Diet', style: text.titleMedium),
-          AppSpacing.vGapSm,
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: MockData.dietFilters
-                .map((d) => FilterChip(label: Text(d), selected: false, onSelected: (_) {}))
-                .toList(),
-          ),
-          AppSpacing.vGapLg,
-          Text('Cooking time', style: text.titleMedium),
-          AppSpacing.vGapSm,
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: ['< 15 min', '< 30 min', '< 1 hr', '> 1 hr']
-                .map((d) => FilterChip(label: Text(d), selected: false, onSelected: (_) {}))
-                .toList(),
-          ),
-          AppSpacing.vGapLg,
-          Text('Difficulty', style: text.titleMedium),
-          AppSpacing.vGapSm,
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: ['Easy', 'Medium', 'Hard']
-                .map((d) => FilterChip(label: Text(d), selected: false, onSelected: (_) {}))
-                .toList(),
-          ),
-          AppSpacing.vGapXl,
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Apply Filters'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

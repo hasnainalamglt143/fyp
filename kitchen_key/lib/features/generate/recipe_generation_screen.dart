@@ -3,16 +3,15 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../data/mock_data.dart';
-import '../../data/models/recipe.dart';
+import '../../data/repositories/recipe_repository.dart';
 import '../../shared/widgets/editorial_header.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/primary_button.dart';
 import '../../shared/widgets/recipe_card.dart';
 
-/// "What's in your fridge?" — pick ingredients, generate matching recipes.
 class RecipeGenerationScreen extends ConsumerStatefulWidget {
   const RecipeGenerationScreen({super.key});
 
@@ -24,8 +23,7 @@ class _RecipeGenerationScreenState extends ConsumerState<RecipeGenerationScreen>
   final Set<String> _selected = {};
   final _searchCtrl = TextEditingController();
   String _filter = '';
-  bool _generated = false;
-  bool _loading = false;
+  List<String>? _submitted; // stable instance passed to the suggest provider
 
   @override
   void dispose() {
@@ -33,32 +31,13 @@ class _RecipeGenerationScreenState extends ConsumerState<RecipeGenerationScreen>
     super.dispose();
   }
 
-  List<String> get _filteredPantry => MockData.pantry
-      .where((i) => i.toLowerCase().contains(_filter.toLowerCase()))
-      .toList();
-
-  List<Recipe> get _results => MockData.recipes;
-
-  void _generate() {
-    setState(() {
-      _loading = true;
-      _generated = false;
-    });
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _generated = true;
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final ingredientsAsync = ref.watch(ingredientsProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Generate Recipe')),
+      appBar: AppBar(title: const Text('Suggest Recipes')),
       body: Column(
         children: [
           Expanded(
@@ -107,56 +86,81 @@ class _RecipeGenerationScreenState extends ConsumerState<RecipeGenerationScreen>
                 Text('SUGGESTED INGREDIENTS',
                     style: text.labelSmall?.copyWith(color: AppColors.textSecondary)),
                 AppSpacing.vGapSm,
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: _filteredPantry.map((i) {
-                    final selected = _selected.contains(i);
-                    return FilterChip(
-                      label: Text(i),
-                      selected: selected,
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() {
-                        selected ? _selected.remove(i) : _selected.add(i);
-                      }),
-                      labelStyle: text.labelMedium?.copyWith(
-                        color: selected ? Colors.white : AppColors.textSecondary,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                if (_loading) ...[
-                  AppSpacing.vGapXl,
-                  const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                  AppSpacing.vGapMd,
-                  Center(child: Text('Finding recipes…', style: text.bodyMedium)),
-                ],
-                if (_generated) ...[
-                  AppSpacing.vGapXl,
-                  EditorialHeader(
-                    eyebrow: '${_results.length} matches',
-                    title: 'You can cook',
-                  ),
-                  AppSpacing.vGapMd,
-                  if (_results.isEmpty)
-                    const EmptyState(
-                      icon: Icons.no_meals_rounded,
-                      title: 'No matches',
-                      message: 'Try adding a few more ingredients to your basket.',
-                    )
-                  else
-                    ..._results.asMap().entries.map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: RecipeListCard(
-                            recipe: e.value,
-                            onTap: () => context.push('/recipe', extra: e.value),
+                ingredientsAsync.when(
+                  data: (all) {
+                    final filtered = all
+                        .where((i) => i.toLowerCase().contains(_filter.toLowerCase()))
+                        .take(60)
+                        .toList();
+                    return Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: filtered.map((i) {
+                        final selected = _selected.contains(i);
+                        return FilterChip(
+                          label: Text(i),
+                          selected: selected,
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() {
+                            selected ? _selected.remove(i) : _selected.add(i);
+                          }),
+                          labelStyle: text.labelMedium?.copyWith(
+                            color: selected ? Colors.white : AppColors.textSecondary,
                           ),
-                        ).animate().fadeIn(delay: (e.key * 80).ms).slideY(begin: 0.1, end: 0)),
+                        );
+                      }).toList(),
+                    );
+                  },
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  ),
+                  error: (e, _) => Text(describeApiError(e), style: text.bodyMedium),
+                ),
+
+                // Results
+                if (_submitted != null) ...[
+                  AppSpacing.vGapXl,
+                  ref.watch(suggestProvider(_submitted!)).when(
+                        data: (results) => results.isEmpty
+                            ? const EmptyState(
+                                icon: Icons.no_meals_rounded,
+                                title: 'No matches',
+                                message: 'Try adding a few more ingredients to your basket.',
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  EditorialHeader(
+                                    eyebrow: '${results.length} matches',
+                                    title: 'You can cook',
+                                  ),
+                                  AppSpacing.vGapMd,
+                                  ...results.asMap().entries.map((e) => Padding(
+                                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                                        child: _SuggestionCard(
+                                          recipe: e.value,
+                                          onTap: () => context.push('/recipe', extra: e.value),
+                                        ),
+                                      ).animate().fadeIn(delay: (e.key * 70).ms).slideY(begin: 0.1, end: 0)),
+                                ],
+                              ),
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(AppSpacing.xl),
+                          child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                        ),
+                        error: (e, _) => EmptyState(
+                          icon: Icons.cloud_off_rounded,
+                          title: 'Connection problem',
+                          message: describeApiError(e),
+                          actionLabel: 'Retry',
+                          onAction: () => ref.invalidate(suggestProvider(_submitted!)),
+                        ),
+                      ),
                 ],
               ],
             ),
           ),
-          // Generate button
           Container(
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
             decoration: BoxDecoration(
@@ -166,13 +170,48 @@ class _RecipeGenerationScreenState extends ConsumerState<RecipeGenerationScreen>
             child: PrimaryButton(
               label: _selected.isEmpty
                   ? 'Select ingredients to start'
-                  : 'Generate ${_selected.length}-ingredient recipes',
+                  : 'Suggest from ${_selected.length} ingredient${_selected.length == 1 ? '' : 's'}',
               icon: Icons.auto_awesome_rounded,
-              onPressed: _selected.isEmpty ? null : _generate,
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () => setState(() => _submitted = _selected.toList()),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A recipe list card with a "match %" badge from the suggestion endpoint.
+class _SuggestionCard extends StatelessWidget {
+  final dynamic recipe;
+  final VoidCallback onTap;
+  const _SuggestionCard({required this.recipe, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        RecipeListCard(recipe: recipe, onTap: onTap),
+        if (recipe.matchScore != null)
+          Positioned(
+            top: AppSpacing.sm,
+            right: AppSpacing.sm,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: AppRadius.brSm,
+              ),
+              child: Text('${recipe.matchScore}% match',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: Colors.white, letterSpacing: 0)),
+            ),
+          ),
+      ],
     );
   }
 }

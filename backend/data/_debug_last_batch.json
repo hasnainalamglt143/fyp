@@ -1,0 +1,80 @@
+{
+  "recipe_name": "Chicken Karahi (Pakistani Style)",
+  "origin": "Pakistan",
+  "servings": 4,
+  "prep_time_minutes": 15,
+  "cook_time_minutes": 35,
+  "difficulty": "Medium",
+  "ingredients": [
+    {
+      "item": "Chicken (bone-in, cut pieces)",
+      "quantity": "1 kg"
+    },
+    {
+      "item": "Tomatoes",
+      "quantity": "4 medium (chopped)"
+    },
+    {
+      "item": "Ginger",
+      "quantity": "1.5 tbsp (julienned)"
+    },
+    {
+      "item": "Garlic",
+      "quantity": "1 tbsp (crushed)"
+    },
+    {
+      "item": "Green chilies",
+      "quantity": "6-8 (sliced)"
+    },
+    {
+      "item": "Yogurt",
+      "quantity": "2 tbsp (optional for richness)"
+    },
+    {
+      "item": "Cooking oil or desi ghee",
+      "quantity": "1/2 cup"
+    },
+    {
+      "item": "Red chili powder",
+      "quantity": "1.5 tsp"
+    },
+    {
+      "item": "Coriander powder",
+      "quantity": "1 tbsp"
+    },
+    {
+      "item": "Salt",
+      "quantity": "to taste"
+    },
+    {
+      "item": "Black pepper",
+      "quantity": "1 tsp (freshly ground preferred)"
+    },
+    {
+      "item": "Cumin seeds (optional)",
+      "quantity": "1 tsp"
+    },
+    {
+      "item": "Fresh coriander leaves",
+      "quantity": "handful (for garnish)"
+    }
+  ],
+  "instructions": [
+    "Heat oil or ghee in a wide karahi or heavy pan over high heat.",
+    "Add cumin seeds (optional) and let them sizzle.",
+    "Add chicken pieces and sauté until they turn white and lightly golden.",
+    "Add crushed garlic and ginger; cook for 2–3 minutes until aromatic.",
+    "Add chopped tomatoes, salt, red chili powder, coriander powder, and black pepper.",
+    "Cook on high heat, stirring frequently, until tomatoes break down and form a thick gravy (10–15 minutes).",
+    "Add green chilies and continue cooking until oil separates from the masala.",
+    "Optionally stir in yogurt for a richer, slightly creamy texture.",
+    "Reduce heat and simmer for 5–8 minutes until chicken is fully tender and coated in thick masala.",
+    "Garnish with fresh coriander and extra ginger slices before serving."
+  ],
+  "serving_suggestion": "Serve hot with naan, roti, or steamed basmati rice.",
+  "notes": [
+    "Authentic karahi relies on high heat and minimal water for a concentrated flavor.",
+    "Tomatoes are the primary source of gravy—no need for added water unless necessary.",
+    "For stronger street-style flavor, increase green chilies and ginger."
+  ]
+}
